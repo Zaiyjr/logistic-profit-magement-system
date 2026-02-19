@@ -1,10 +1,10 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
     request: { headers: request.headers },
-  });
+  })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,45 +12,42 @@ export async function updateSession(request: NextRequest) {
     {
       cookies: {
         get(name: string) {
-          return request.cookies.get(name)?.value;
+          return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
           // ✅ ນີ້ຄືສ່ວນທີ່ເຮັດໃຫ້ Cookie ປະກົດໃນ Browser
-          request.cookies.set({ name, value, ...options });
+          request.cookies.set({ name, value, ...options })
           response = NextResponse.next({
             request: { headers: request.headers },
-          });
-          response.cookies.set({ name, value, ...options });
+          })
+          response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options });
+          request.cookies.set({ name, value: '', ...options })
           response = NextResponse.next({
             request: { headers: request.headers },
-          });
-          response.cookies.set({ name, value: "", ...options });
+          })
+          response.cookies.set({ name, value: '', ...options })
         },
       },
-    },
-  );
+    }
+  )
 
-  // ໃນ lib/supabaseMiddleware.ts
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const url = new URL(request.url);
-  const isLoginPage = url.pathname === "/login";
+  // 1. ຖ້າບໍ່ມີ User ແລະ ບໍ່ໄດ້ຢູ່ໜ້າ login ໃຫ້ໄປໜ້າ login
+if (!user && !request.nextUrl.pathname.startsWith('/login')) {
+  const url = request.nextUrl.clone()
+  url.pathname = '/login'
+  return NextResponse.redirect(url)
+}
 
-  // 🚩 ກໍລະນີທີ 1: ບໍ່ມີ User ແລ້ວພະຍາຍາມເຂົ້າໜ້າອື່ນທີ່ບໍ່ແມ່ນ Login
-  if (!user && !isLoginPage) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
+// 2. ຖ້າມີ User ແລ້ວ ແລະ ພະຍາຍາມເຂົ້າໜ້າ login ໃຫ້ໄປໜ້າຫຼັກ
+if (user && request.nextUrl.pathname.startsWith('/login')) {
+  const url = request.nextUrl.clone()
+  url.pathname = '/'
+  return NextResponse.redirect(url)
+}
 
-  // 🚩 ກໍລະນີທີ 2: ມີ User ແລ້ວ ແຕ່ພະຍາຍາມຈະເຂົ້າໜ້າ Login ອີກ
-  if (user && isLoginPage) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-
-  // ຖ້າບໍ່ເຂົ້າເງື່ອນໄຂຂ້າງເທິງ ໃຫ້ປ່ອຍຜ່ານ (Next)
-  return response;
+  return response
 }
